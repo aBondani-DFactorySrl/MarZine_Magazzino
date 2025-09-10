@@ -1,0 +1,16 @@
+services:
+  marzinebackend:
+    image: docker.marclev.com/dfactory/marzineoffbackend:v0.0.17
+    build: .
+    ports:
+      - "4126:4126"
+    environment:
+      NODE_ENV: production
+    volumes:
+      - "/home/ubuntu/backend_data/attachments:/attachments"
+      - "/home/ubuntu/backend_data/db:/db"
+      - "/home/ubuntu/backend_data/email:/email"
+      # - 'C:\Users\mdesimone.MARCHIANISRL\Desktop\New folder/db:/db'
+      # - 'C:\Users\mdesimone.MARCHIANISRL\Desktop\New folder/attachments:/attachments'
+      - .:/app
+    restart: always
