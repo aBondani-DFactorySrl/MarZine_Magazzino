@@ -760,6 +760,7 @@ const FilterReport: React.FC<FilterReportProps> = ({
   //#endregion
 
   //#region Main Return
+  console.log(aobCommesseToBeRendered);
   return (
     <Space direction="vertical" style={{ width: "100%" }} size="large">
       <div>
@@ -803,9 +804,32 @@ const FilterReport: React.FC<FilterReportProps> = ({
               style={{ width: "100%" }}
               placeholder="Tutte le commesse"
               onChange={(value) => setSelectedComFilter(value)}
+              showSearch
+              filterOption={(input, option) => {
+                const searchValue = input.toLowerCase();
+                const optionValue =
+                  option?.label?.toString().toLowerCase() || "";
+                return (
+                  optionValue.includes(searchValue) ||
+                  option?.data?.descliente
+                    ?.toLowerCase()
+                    .includes(searchValue) ||
+                  option?.data?.descommessa
+                    ?.toLowerCase()
+                    .includes(searchValue) ||
+                  option?.data?.comcliente?.toLowerCase().includes(searchValue)
+                );
+              }}
               options={aobCommesseToBeRendered.map((commessa: any) => ({
                 value: commessa.commessa.split(" - ")[0],
-                label: `${commessa.commessa} - ${commessa.descliente}`,
+                label: `${commessa.commessa} - ${
+                  commessa.descommessa?.endsWith("SPA") ||
+                  commessa.descommessa?.endsWith("SRL") ||
+                  commessa.descommessa?.endsWith("B.V.")
+                    ? commessa.descliente
+                    : commessa.descommessa
+                }`,
+                data: commessa, // Pass the entire commessa object for searching
               }))}
             />
           </div>
