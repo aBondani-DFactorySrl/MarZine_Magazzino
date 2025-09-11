@@ -1,6 +1,6 @@
 services:
   marzinefrontend:
-    image: docker.marclev.com/dfactory/marzineofffrontend:v0.1.13
+    image: docker.marclev.com/dfactory/marzineofffrontend:v0.1.14
     build:
       context: .
       dockerfile: ./Dockerfile
