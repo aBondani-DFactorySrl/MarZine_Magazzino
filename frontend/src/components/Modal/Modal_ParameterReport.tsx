@@ -217,14 +217,37 @@ const FilterReport: React.FC<FilterReportProps> = ({
       ],
       body: formattedData,
     });
-    doc.setFontSize(10);
-    doc.text(
-      `Generato il: ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString()}`,
+    // Add footer
+    const pageHeight = doc.internal.pageSize.height;
+
+    // Footer line
+    doc.setDrawColor(236, 240, 241); // Light gray
+    doc.setLineWidth(1);
+    doc.line(
       15,
-      doc.internal.pageSize.height - 10
+      pageHeight - 20,
+      doc.internal.pageSize.width - 15,
+      pageHeight - 20
     );
+
+    // Footer text
+    doc.setFontSize(8);
+    doc.setTextColor(52, 73, 94); // Dark gray
+
+    const timestamp = new Date();
+    const dateStr = timestamp.toLocaleDateString();
+    const timeStr = timestamp.toLocaleTimeString();
+
+    // Left side: Generation timestamp
+    doc.text(`Generato il: ${dateStr} alle ${timeStr}`, 15, pageHeight - 12);
+
+    // Right side: Page number
+    doc.text(`Pagina 1`, doc.internal.pageSize.width - 30, pageHeight - 12);
+
     doc.save(
-      `Resoconto_Commesse_Archiviate_${new Date().toLocaleDateString()}.pdf`
+      `Resoconto_Commesse_Archiviate_${
+        new Date().toISOString().split("T")[0]
+      }.pdf`
     );
   };
   //#endregion
@@ -443,135 +466,77 @@ const FilterReport: React.FC<FilterReportProps> = ({
     const doc = new jsPDF("portrait");
     const Logo = img;
 
-    // Define colors and styles
-    const colors = {
-      primary: [41, 128, 185], // Blue
-      secondary: [52, 73, 94], // Dark gray
-      success: [39, 174, 96], // Green
-      danger: [231, 76, 60], // Red
-      light: [236, 240, 241], // Light gray
-      dark: [44, 62, 80], // Very dark gray
-    };
-
-    const styles = {
-      title: { size: 18, color: colors.primary },
-      subtitle: { size: 12, color: colors.secondary },
-      body: { size: 10, color: colors.dark },
-      small: { size: 8, color: colors.secondary },
-    };
-
-    // Helper functions
-    const setTextStyle = (style: any) => {
-      doc.setFontSize(style.size);
-      doc.setTextColor(style.color[0], style.color[1], style.color[2]);
-    };
-
-    const addSection = (title: any, yPos: any, style = styles.subtitle) => {
-      setTextStyle(style);
-      doc.setFont("helvetica", "bold");
-      doc.text(title, 15, yPos);
-      doc.setFont("helvetica", "normal");
-      return yPos + 8;
-    };
-
-    const addInfoRow = (label: any, value: any, yPos: any) => {
-      setTextStyle(styles.body);
-      doc.setFont("helvetica", "bold");
-      doc.text(`${label}:`, 15, yPos);
-      doc.setFont("helvetica", "normal");
-      doc.text(String(value || "N/A"), 60, yPos);
-      return yPos + 5;
-    };
-
-    const createTable = (
-      headers: any,
-      data: any,
-      startY: any,
-      headerColor = colors.primary
+    // Helper function to add a new page for each commessa
+    const addNewCommessaPage = (
+      commessaId: string,
+      isFirst: boolean = false
     ) => {
-      if (data.length === 0) {
-        setTextStyle(styles.body);
-        doc.setTextColor(150, 150, 150);
-        doc.text("Nessun dato disponibile", 15, startY);
-        return startY + 10;
+      if (!isFirst) {
+        doc.addPage();
       }
 
-      autoTable(doc, {
-        startY,
-        head: [headers],
-        body: data,
-        theme: "striped",
-        headStyles: {
-          fillColor: headerColor as any,
-          textColor: [255, 255, 255],
-          fontSize: 10,
-          fontStyle: "bold",
-        },
-        bodyStyles: {
-          fontSize: 9,
-          textColor: colors.dark as any,
-        },
-        alternateRowStyles: {
-          fillColor: colors.light as any,
-        },
-        margin: { left: 15, right: 15 },
-        tableWidth: "auto",
-        styles: {
-          cellPadding: 3,
-          overflow: "linebreak",
-          cellWidth: "auto",
-        },
-      });
-
-      return (doc as any).lastAutoTable.finalY + 15;
-    };
-
-    const addHeader = (commessaId: string) => {
-      // Logo
-      doc.addImage(Logo, "JPEG", 15, 15, 45, 25);
-
-      // Title
-      setTextStyle(styles.title);
+      // Header with logo and title
+      doc.addImage(Logo, "JPEG", 20, 8, 40, 22);
+      doc.setFontSize(16);
       doc.setFont("helvetica", "bold");
-      doc.text(`Resoconto Commessa: ${commessaId}`, 70, 25);
+      doc.text(`Commessa: ${commessaId}`, 120, 29);
 
       // Divider line
-      doc.setDrawColor(colors.primary[0], colors.primary[1], colors.primary[2]);
-      doc.setLineWidth(2);
-      doc.line(15, 45, 195, 45);
+      doc.setLineWidth(0.2);
+      doc.line(15, 33, 195, 33);
 
-      return 55;
+      return 38; // Starting Y position for content
     };
 
-    const addFooter = (commessaId: string) => {
-      const pageHeight = (doc as any).internal.pageSize.height;
-
-      // Footer line
-      doc.setDrawColor(colors.light[0], colors.light[1], colors.light[2]);
-      doc.setLineWidth(1);
-      doc.line(15, pageHeight - 20, 195, pageHeight - 20);
-
-      // Footer text
-      setTextStyle(styles.small);
-      const timestamp = new Date();
-      const dateStr = timestamp.toLocaleDateString();
-      const timeStr = timestamp.toLocaleTimeString();
-
-      doc.text(`Generato il: ${dateStr} alle ${timeStr}`, 15, pageHeight - 12);
-      doc.text(`Commessa: ${commessaId}`, 15, pageHeight - 6);
-
-      // Page number
-      doc.text(
-        `Pagina ${doc.getCurrentPageInfo().pageNumber}`,
-        170,
-        pageHeight - 6
+    // Process each commessa
+    allCommesse.forEach((commessa: any, index: any) => {
+      const commessaFinded = aobCommesseToBeRendered.find(
+        (item) => item.commessa === commessa
       );
-    };
 
-    const processCommessaData = (commessaFinded: any) => {
+      if (!commessaFinded) return;
+
+      const commessaId = commessaFinded.commessa.split(" - ")[0];
+      let yPosition = addNewCommessaPage(commessaId, index === 0);
+
+      // Basic Information Section
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "normal");
+      doc.text(
+        `Commessa Cliente: ${commessaFinded.comcliente || "N/A"} - ${
+          commessaFinded.descommessa?.endsWith("SPA") ||
+          commessaFinded.descommessa?.endsWith("SRL") ||
+          commessaFinded.descommessa?.endsWith("B.V.")
+            ? commessaFinded.descommessa
+            : commessaFinded.descliente
+        }`,
+        15,
+        yPosition
+      );
+      yPosition += 5;
+      doc.text(
+        `Descrizione: ${
+          commessaFinded.descommessa?.endsWith("SPA") ||
+          commessaFinded.descommessa?.endsWith("SRL") ||
+          commessaFinded.descommessa?.endsWith("B.V.")
+            ? commessaFinded.descliente
+            : commessaFinded.descommessa
+        }`,
+        15,
+        yPosition
+      );
+      yPosition += 5;
+      doc.text(`Stato: ${getStatoLabel(commessaFinded.stato)}`, 15, yPosition);
+      yPosition += 5;
+      doc.text(
+        `Progressione: ${(commessaFinded.progression || 0).toFixed(2)}%`,
+        15,
+        yPosition
+      );
+      yPosition += 10;
+
+      // Prepare Hours Data
       const hoursData: any[] = [];
-
-      // Process hours data
       ["cablaggio", "montaggio"].forEach((section) => {
         const sectionData = commessaFinded[section];
         if (sectionData?.oreLav) {
@@ -589,8 +554,39 @@ const FilterReport: React.FC<FilterReportProps> = ({
         }
       });
 
-      // Process errors data
-      const errorsData: any = [];
+      // Hours Table
+      doc.setFontSize(12);
+      doc.setFont("helvetica", "bold");
+      doc.text("ORE LAVORATE", 15, yPosition);
+      yPosition += 5;
+
+      if (hoursData.length > 0) {
+        autoTable(doc, {
+          startY: yPosition,
+          head: [["Sezione", "Tecnico", "Ore", "Task", "Data"]],
+          body: hoursData,
+          theme: "striped",
+          headStyles: {
+            fillColor: [41, 128, 185],
+            textColor: [255, 255, 255],
+            fontSize: 10,
+            fontStyle: "bold",
+          },
+          bodyStyles: {
+            fontSize: 9,
+          },
+          margin: { left: 15, right: 15 },
+        });
+        yPosition = (doc as any).lastAutoTable.finalY + 15;
+      } else {
+        doc.setFontSize(10);
+        doc.text("Nessuna ora lavorata registrata", 15, yPosition);
+        yPosition += 15;
+      }
+
+      // Prepare Errors Data
+      const errorsData: any[] = [];
+      console.log(commessaFinded.errori);
       if (commessaFinded.errori) {
         const allErrors = [
           ...(commessaFinded.errori.df || []),
@@ -610,80 +606,62 @@ const FilterReport: React.FC<FilterReportProps> = ({
             getRepartoErrorLabel(
               errore.repartodisbaglio || "Non specificato",
               errore.provenienzaSchemista || "Non specificato",
-              errore.nomeSchemista || "Non specificato"
+              errore.schemista || "Non specificato"
             ),
             notes || "N/A",
           ]);
         });
       }
 
-      return { hoursData, errorsData };
-    };
-
-    // Main processing
-    allCommesse.forEach((commessa: any, index: any) => {
-      const commessaFinded = aobCommesseToBeRendered.find(
-        (item) => item.commessa === commessa
-      );
-
-      if (!commessaFinded) return;
-
-      // Add new page for each commessa (except first)
-      if (index > 0) {
+      // Check if we need a new page for errors table
+      const remainingSpace = 297 - yPosition - 20; // A4 height minus margins
+      if (errorsData.length > 0 && remainingSpace < 60) {
         doc.addPage();
+        yPosition = addNewCommessaPage(commessaId + " (Continua)");
       }
 
-      const commessaId = commessaFinded.commessa.split(" - ")[0];
-      let yPosition = addHeader(commessaId);
-
-      // General Information
-      yPosition = addSection("INFORMAZIONI GENERALI", yPosition);
-      yPosition = addInfoRow("Cliente", commessaFinded.comcliente, yPosition);
-      yPosition = addInfoRow(
-        "Descrizione",
-        `${commessaFinded.descommessa} - ${commessaFinded.descliente}`,
-        yPosition
-      );
-      yPosition = addInfoRow(
-        "Stato",
-        getStatoLabel(commessaFinded.stato),
-        yPosition
-      );
-      yPosition = addInfoRow(
-        "Progressione",
-        `${(commessaFinded.progression || 0).toFixed(2)}%`,
-        yPosition
-      );
+      // Errors Table
+      doc.setFontSize(12);
+      doc.setFont("helvetica", "bold");
+      doc.text("ERRORI", 15, yPosition);
       yPosition += 10;
 
-      // Process data
-      const { hoursData, errorsData } = processCommessaData(commessaFinded);
+      if (errorsData.length > 0) {
+        autoTable(doc, {
+          startY: yPosition,
+          head: [["Titolo", "Ore", "Reparto - INT/EXT - Schemista", "Note"]],
+          body: errorsData,
+          theme: "striped",
+          headStyles: {
+            fillColor: [231, 76, 60],
+            textColor: [255, 255, 255],
+            fontSize: 10,
+            fontStyle: "bold",
+          },
+          bodyStyles: {
+            fontSize: 9,
+          },
+          margin: { left: 15, right: 15 },
+        });
+      } else {
+        doc.setFontSize(10);
+        doc.text("Nessun errore registrato", 15, yPosition);
+      }
 
-      // Hours Section
-      yPosition = addSection("ORE LAVORATE", yPosition);
-      yPosition = createTable(
-        ["Sezione", "Tecnico", "Ore", "Task", "Data"],
-        hoursData,
-        yPosition,
-        colors.success
+      // Add page footer
+      const pageHeight = doc.internal.pageSize.height;
+      doc.setFontSize(8);
+      doc.text(
+        `Generato il: ${new Date().toLocaleDateString()}`,
+        15,
+        pageHeight - 15
       );
-
-      // Errors Section
-      yPosition = addSection("ERRORI", yPosition);
-      yPosition = createTable(
-        ["Titolo", "Ore", "Reparto", "Note"],
-        errorsData,
-        yPosition,
-        colors.danger
-      );
-
-      // Add footer
-      addFooter(commessaId);
+      doc.text(`Pagina ${index + 1}`, 180, pageHeight - 15);
     });
 
-    // Save the file
+    // Save the PDF
     const timestamp = new Date().toISOString().split("T")[0];
-    doc.save(`Resoconto_Dettagliato_Commesse_${timestamp}.pdf`);
+    doc.save(`Resoconto_Commesse_${timestamp}.pdf`);
   };
   //#endregion
 
@@ -760,7 +738,6 @@ const FilterReport: React.FC<FilterReportProps> = ({
   //#endregion
 
   //#region Main Return
-  console.log(aobCommesseToBeRendered);
   return (
     <Space direction="vertical" style={{ width: "100%" }} size="large">
       <div>
@@ -820,17 +797,42 @@ const FilterReport: React.FC<FilterReportProps> = ({
                   option?.data?.comcliente?.toLowerCase().includes(searchValue)
                 );
               }}
-              options={aobCommesseToBeRendered.map((commessa: any) => ({
-                value: commessa.commessa.split(" - ")[0],
-                label: `${commessa.commessa} - ${
-                  commessa.descommessa?.endsWith("SPA") ||
-                  commessa.descommessa?.endsWith("SRL") ||
-                  commessa.descommessa?.endsWith("B.V.")
-                    ? commessa.descliente
-                    : commessa.descommessa
-                }`,
-                data: commessa, // Pass the entire commessa object for searching
-              }))}
+              options={aobCommesseToBeRendered
+                .map((commessa: any) => ({
+                  value: commessa.commessa.split(" - ")[0],
+                  label: `${commessa.commessa} - ${
+                    commessa.descommessa?.endsWith("SPA") ||
+                    commessa.descommessa?.endsWith("SRL") ||
+                    commessa.descommessa?.endsWith("B.V.")
+                      ? commessa.descliente
+                      : commessa.descommessa
+                  }`,
+                  data: commessa, // Pass the entire commessa object for searching
+                }))
+                .sort((a, b) => {
+                  // Split the commessa code by dots and compare each segment numerically
+                  const aParts = a.value.split(".");
+                  const bParts = b.value.split(".");
+
+                  // Compare each segment numerically
+                  const minLength = Math.min(aParts.length, bParts.length);
+                  for (let i = 0; i < minLength; i++) {
+                    const aNum = parseInt(aParts[i], 10);
+                    const bNum = parseInt(bParts[i], 10);
+
+                    if (!isNaN(aNum) && !isNaN(bNum) && aNum !== bNum) {
+                      return aNum - bNum;
+                    }
+                  }
+
+                  // If all segments are equal up to the minimum length, the shorter one comes first
+                  if (aParts.length !== bParts.length) {
+                    return aParts.length - bParts.length;
+                  }
+
+                  // Fallback to alphabetical sorting if numeric comparison is equal
+                  return a.label.localeCompare(b.label);
+                })}
             />
           </div>
         </Space>
