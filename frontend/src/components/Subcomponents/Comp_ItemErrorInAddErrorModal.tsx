@@ -176,6 +176,7 @@ export const ErrorForm: React.FC<ErrorFormProps> = memo(function ErrorForm({
     "Alfio Lena",
     "Luca Borlenghi",
     "Nicolas Arbasi",
+    "Andrea Marchese",
   ];
 
   return (

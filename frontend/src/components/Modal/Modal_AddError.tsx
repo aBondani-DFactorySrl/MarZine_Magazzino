@@ -642,6 +642,9 @@ const AddError: React.FC<AddHourProps> = ({ commessa }) => {
                         <Select.Option value="Nicolas Arbasi">
                           Nicolas Arbasi
                         </Select.Option>
+                        <Select.Option value="Andrea Marchese">
+                          Andrea Marchese
+                        </Select.Option>
                       </Select>
                     )
                   )}
