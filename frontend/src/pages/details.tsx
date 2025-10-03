@@ -98,6 +98,7 @@ const Details: React.FC = () => {
         setUbicazione(todoObject.shelf.sort().join(" / "));
       }
     } else {
+      setPosData("Magazzino");
       setUbicazione("Ubicazione non ancora assegnata");
     }
   }, []);

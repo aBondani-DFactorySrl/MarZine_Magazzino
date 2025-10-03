@@ -158,7 +158,7 @@ const ToDoList: React.FC<ToDoListProps> = ({ title, todos }) => {
     setLoadingButton(true);
     let updateObj: any = {};
     let idToDelete;
-    
+
     // Find if there's an iteration with the same status as the next status
     const matchingIteration = selectedTodo.allIteration.find(
       (element: any) => item.nextStatus == element.stato
@@ -173,7 +173,8 @@ const ToDoList: React.FC<ToDoListProps> = ({ title, todos }) => {
         shelf: [...selectedTodo.shelf, ...matchingIteration.shelf],
         note: [...selectedTodo.note, ...matchingIteration.note],
         urgent: selectedTodo.urgent || matchingIteration.urgent ? true : false,
-        external: selectedTodo.external || matchingIteration.external ? true : false,
+        external:
+          selectedTodo.external || matchingIteration.external ? true : false,
         unique_docs: [
           ...(selectedTodo.unique_docs || []),
           ...(matchingIteration.unique_docs || []),
@@ -184,13 +185,18 @@ const ToDoList: React.FC<ToDoListProps> = ({ title, todos }) => {
         ],
         arrivoOfficina: (() => {
           // If both are null/undefined, return null
-          if (!selectedTodo.arrivoOfficina && !matchingIteration.arrivoOfficina) {
+          if (
+            !selectedTodo.arrivoOfficina &&
+            !matchingIteration.arrivoOfficina
+          ) {
             return null;
           }
 
           // If one is null/undefined, return the other
-          if (!selectedTodo.arrivoOfficina) return matchingIteration.arrivoOfficina;
-          if (!matchingIteration.arrivoOfficina) return selectedTodo.arrivoOfficina;
+          if (!selectedTodo.arrivoOfficina)
+            return matchingIteration.arrivoOfficina;
+          if (!matchingIteration.arrivoOfficina)
+            return selectedTodo.arrivoOfficina;
 
           // Both exist, compare and return the older date
           const selectedDate = new Date(selectedTodo.arrivoOfficina);
@@ -340,7 +346,7 @@ const ToDoList: React.FC<ToDoListProps> = ({ title, todos }) => {
               return dateA - dateB;
             })
             .map((todo) => (
-              <React.Fragment key={todo.id || Math.random()}>
+              <React.Fragment key={Math.random()}>
                 {todos.length ? (
                   <IterationCard
                     todo={todo}

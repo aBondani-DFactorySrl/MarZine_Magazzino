@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { Modal, Select, Button } from "antd";
 
 interface ChessBoardProps {
   rows: number;
@@ -16,6 +17,13 @@ interface ChessBoardProps {
     col: string;
     status: number;
   }) => void;
+  onShelfMove?: (fromShelf: string, toShelf: string) => void;
+  onShelfMoveWithStatus?: (
+    fromShelf: string,
+    toShelf: string,
+    fromStatus: number,
+    toStatus: number
+  ) => void;
 }
 
 const ChessBoard: React.FC<ChessBoardProps> = ({
@@ -26,6 +34,8 @@ const ChessBoard: React.FC<ChessBoardProps> = ({
   commessa,
   shelf,
   onPathClick,
+  onShelfMove,
+  onShelfMoveWithStatus,
 }) => {
   const board = [];
 
@@ -35,6 +45,15 @@ const ChessBoard: React.FC<ChessBoardProps> = ({
     row: number;
     col: string;
   } | null>(null);
+
+  // Modal state for shelf move
+  const [openShelfMoveModal, setOpenShelfMoveModal] = useState<boolean>(false);
+  const [pendingMove, setPendingMove] = useState<{
+    fromShelf: string;
+    toShelf: string;
+  } | null>(null);
+  const [selectedFromStatus, setSelectedFromStatus] = useState<number>(1); // Default to "Disponibile" for from shelf
+  const [selectedToStatus, setSelectedToStatus] = useState<number>(2); // Default to "Usabile" for to shelf
 
   // Update allShelfs when items prop changes
   useEffect(() => {
@@ -96,6 +115,13 @@ const ChessBoard: React.FC<ChessBoardProps> = ({
     });
   };
 
+  const handleShelfDragStart = (
+    event: React.DragEvent<HTMLTableCellElement>,
+    shelfKey: string
+  ) => {
+    event.dataTransfer.setData("text/plain", `shelf-move:${shelfKey}`);
+  };
+
   const handleDrop = (
     event: React.DragEvent<HTMLTableCellElement>,
     row: number,
@@ -103,8 +129,51 @@ const ChessBoard: React.FC<ChessBoardProps> = ({
     value: number
   ) => {
     event.preventDefault();
-    handleCellClick(row, col, value !== undefined ? value : 0);
+    const dragData = event.dataTransfer.getData("text/plain");
+
+    if (dragData.startsWith("shelf-move:")) {
+      // Handle shelf move
+      const fromShelf = dragData.replace("shelf-move:", "");
+      const toShelf = `${title}-${row}-${col}`;
+
+      if (fromShelf !== toShelf) {
+        // Show modal for status selection
+        setPendingMove({ fromShelf, toShelf });
+        setSelectedFromStatus(1); // Reset to default
+        setSelectedToStatus(1); // Reset to default
+        setOpenShelfMoveModal(true);
+      }
+    } else {
+      // Handle regular drag (from draggable element)
+      handleCellClick(row, col, value !== undefined ? value : 0);
+    }
+
     setHighlightedCell(null);
+  };
+
+  const handleShelfMoveConfirmation = () => {
+    if (pendingMove) {
+      if (onShelfMoveWithStatus) {
+        onShelfMoveWithStatus(
+          pendingMove.fromShelf,
+          pendingMove.toShelf,
+          selectedFromStatus,
+          selectedToStatus
+        );
+      } else if (onShelfMove) {
+        // Fallback to original method if new prop not provided
+        onShelfMove(pendingMove.fromShelf, pendingMove.toShelf);
+      }
+    }
+    setOpenShelfMoveModal(false);
+    setPendingMove(null);
+  };
+
+  const handleShelfMoveCancel = () => {
+    setOpenShelfMoveModal(false);
+    setPendingMove(null);
+    setSelectedFromStatus(1);
+    setSelectedToStatus(2);
   };
 
   // Generate column headers
@@ -257,6 +326,12 @@ const ChessBoard: React.FC<ChessBoardProps> = ({
       currentRow.push(
         <td
           key={key}
+          draggable={isInShelfArray}
+          onDragStart={
+            isInShelfArray
+              ? (event) => handleShelfDragStart(event, key)
+              : undefined
+          }
           onMouseEnter={() => setHoveredCell({ row: rowName, col: colName })}
           onMouseLeave={() => setHoveredCell({ row: -1, col: "-1" })}
           onClick={() =>
@@ -275,7 +350,7 @@ const ChessBoard: React.FC<ChessBoardProps> = ({
             backgroundColor,
             textAlign: "center",
             color: textColor,
-            cursor: "pointer",
+            cursor: isInShelfArray ? "move" : "pointer",
             transition: "all 0.2s ease",
             fontSize: "13px",
             fontWeight: "500",
@@ -284,6 +359,33 @@ const ChessBoard: React.FC<ChessBoardProps> = ({
           }}
         >
           {title}-{rowName}-{colName}
+          {isInShelfArray && (
+            <div
+              style={{
+                fontSize: "10px",
+                color: "#fff",
+                marginTop: "2px",
+                fontWeight: "bold",
+              }}
+            >
+              <div style={{ fontSize: "9px", color: "#fff", marginTop: "1px" }}>
+                {(() => {
+                  switch (value) {
+                    case 1:
+                      return "Libero";
+                    case 2:
+                      return "Usabile";
+                    case 3:
+                      return "Pieno";
+                    case 4:
+                      return "Selezionato";
+                    default:
+                      return "";
+                  }
+                })()}
+              </div>
+            </div>
+          )}
         </td>
       );
     }
@@ -383,6 +485,64 @@ const ChessBoard: React.FC<ChessBoardProps> = ({
           </div>
         )}
       </div>
+
+      {/* Shelf Move Modal */}
+      <Modal
+        title="Conferma spostamento scaffale"
+        open={openShelfMoveModal}
+        onCancel={handleShelfMoveCancel}
+        footer={null}
+        width={700}
+      >
+        <p>
+          Stai spostando il materiale da{" "}
+          <strong>{pendingMove?.fromShelf}</strong> a{" "}
+          <strong>{pendingMove?.toShelf}</strong>.
+        </p>
+
+        <div style={{ marginBottom: 16 }}>
+          <p>
+            <strong>
+              Stato della posizione di partenza ({pendingMove?.fromShelf}):
+            </strong>
+          </p>
+          <Select
+            placeholder="Seleziona lo stato della posizione di partenza"
+            value={selectedFromStatus}
+            onChange={setSelectedFromStatus}
+            style={{ width: 250, marginBottom: 16 }}
+          >
+            <Select.Option value={1}>Posizione Disponibile</Select.Option>
+            <Select.Option value={2}>Posizione Usabile</Select.Option>
+            <Select.Option value={3}>Posizione Piena</Select.Option>
+          </Select>
+        </div>
+
+        <div style={{ marginBottom: 16 }}>
+          <p>
+            <strong>
+              Stato della posizione di destinazione ({pendingMove?.toShelf}):
+            </strong>
+          </p>
+          <Select
+            placeholder="Seleziona lo stato della posizione di destinazione"
+            value={selectedToStatus}
+            onChange={setSelectedToStatus}
+            style={{ width: 250, marginBottom: 16 }}
+          >
+            <Select.Option value={1}>Posizione Disponibile</Select.Option>
+            <Select.Option value={2}>Posizione Usabile</Select.Option>
+            <Select.Option value={3}>Posizione Piena</Select.Option>
+          </Select>
+        </div>
+
+        <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
+          <Button onClick={handleShelfMoveCancel}>Annulla</Button>
+          <Button type="primary" onClick={handleShelfMoveConfirmation}>
+            Conferma Spostamento
+          </Button>
+        </div>
+      </Modal>
     </div>
   );
 };

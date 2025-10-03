@@ -285,6 +285,7 @@ const updateShelf = async (params, pgPool) => {
                 author: author,
               },
             ],
+        stato: existingIteration.stato === 0 ? 1 : existingIteration.stato,
         // Ensure id is preserved
         id: existingIteration.id,
       };
@@ -507,5 +508,226 @@ const updateOfficinaPos = async (params, pgPool) => {
     };
   }
 };
+const updateStatoIfFinito = async (params, pgPool) => {
+  console.log("=== UPDATE STATO IF FINITO START ===");
+  try {
+    const { todo } = params;
+    // Update the record with the new iterations array
+    // console.log(todo);
+    // console.log(shelf);
+    const selectQuery = "SELECT iterazioni FROM records WHERE commessa = $1";
+    const selectResult = await pgPool.query(selectQuery, [todo.commessa]);
+    const existingIterations = selectResult.rows[0].iterazioni || [];
+    const updatedIterations = existingIterations.map((iteration) => {
+      if (iteration.id === todo.id) {
+        return {
+          ...iteration,
+          stato:
+            iteration.stato === 0 || iteration.stato === 1
+              ? 10
+              : iteration.stato,
+        };
+      }
+    });
+    const updateQuery =
+      "UPDATE records SET iterazioni = $1 WHERE commessa = $2 RETURNING *";
+    const updateResult = await pgPool.query(updateQuery, [
+      JSON.stringify(updatedIterations),
+      todo.commessa,
+    ]);
+    //console.log("Iteration updated:", updateResult.rows[0]);
+    console.log("=== UPDATE STATO IF FINITO SUCCESS ===");
+    return {
+      success: true,
+      message: "Stato updated successfully",
+    };
+  } catch (error) {
+    console.error("Update stato if finito error:", error);
+    return {
+      success: false,
+      status: 500,
+      message:
+        error.message || "Internal server error updating stato if finito",
+    };
+  }
+};
+const moveShelf = async (params, pgPool) => {
+  console.log("=== MOVE SHELF START ===");
+  console.log("Received params:", params);
 
-export { modify, updateById, updateShelf, add, updateOfficinaPos };
+  try {
+    const { commessa, iterationId, fromShelf, toShelf, author } = params;
+
+    console.log("Extracted parameters:", {
+      commessa,
+      iterationId,
+      fromShelf,
+      toShelf,
+      author,
+    });
+
+    // Validate required fields
+    if (!commessa || !iterationId || !fromShelf || !toShelf) {
+      console.log("Validation failed - missing required fields");
+      return {
+        success: false,
+        status: 400,
+        message:
+          "Missing required fields: commessa, iterationId, fromShelf, and toShelf",
+      };
+    }
+
+    console.log("Validation passed, querying database...");
+
+    // Get the current commessa data
+    const getQuery = "SELECT * FROM records WHERE commessa = $1";
+    const result = await pgPool.query(getQuery, [commessa]);
+
+    console.log("Database query result:", result.rows.length, "rows found");
+
+    if (result.rows.length === 0) {
+      console.log("Commessa not found");
+      return {
+        success: false,
+        status: 404,
+        message: "Commessa not found",
+      };
+    }
+
+    let iterations = result.rows[0].iterazioni || [];
+    console.log("Found iterations:", iterations.length);
+
+    // Find the iteration to update
+    const iterationIndex = iterations.findIndex(
+      (iter) => iter.id === iterationId
+    );
+
+    console.log("Iteration index:", iterationIndex);
+
+    if (iterationIndex === -1) {
+      console.log("Iteration not found");
+      return {
+        success: false,
+        status: 404,
+        message: "Iteration not found",
+      };
+    }
+
+    const existingIteration = iterations[iterationIndex];
+    console.log("Existing iteration shelf:", existingIteration.shelf);
+
+    // Check if toShelf already exists in the current shelf array
+    if (existingIteration.shelf && existingIteration.shelf.includes(toShelf)) {
+      console.log("Target shelf already exists in iteration");
+      return {
+        success: false,
+        status: 400,
+        message: "Target shelf already exists in iteration",
+      };
+    }
+
+    console.log("Shelf validation passed, updating iteration...");
+
+    // Get the current shelf for history tracking
+    const currentShelf =
+      existingIteration.shelf && existingIteration.shelf.length > 0
+        ? existingIteration.shelf[0]
+        : fromShelf || "unknown";
+
+    // Update the iteration - replace the old shelf with the new shelf
+    const updatedIteration = {
+      ...existingIteration,
+      shelf: (existingIteration.shelf || [])
+        .filter(shelf => shelf !== fromShelf) // Remove the old shelf
+        .concat(toShelf), // Add the new shelf
+      shelfHistory: [
+        ...(existingIteration.shelfHistory || []),
+        {
+          shelf: toShelf,
+          timestamp: new Date().toISOString(),
+          author: author || "anonymous",
+          fromShelf: currentShelf,
+        },
+      ],
+      // Ensure id is preserved
+      id: existingIteration.id,
+    };
+
+    // Replace the iteration in the array
+    iterations[iterationIndex] = updatedIteration;
+
+    console.log("Updating database...");
+
+    // Update the document in the database
+    const updateQuery =
+      "UPDATE records SET iterazioni = $1 WHERE commessa = $2";
+
+    try {
+      await pgPool.query(updateQuery, [JSON.stringify(iterations), commessa]);
+      console.log("Database update successful");
+    } catch (error) {
+      console.error("Error updating iteration:", error);
+      return {
+        success: false,
+        status: 500,
+        message: "Internal server error updating iteration",
+      };
+    }
+
+    // Update depot table - mark old shelf as available and new shelf as occupied
+    console.log("Updating depot table...");
+
+    try {
+      // Mark the old shelf as available (status 1 - available)
+      if (
+        currentShelf &&
+        currentShelf !== "unknown" &&
+        !currentShelf.startsWith("Officina.")
+      ) {
+        const updateOldShelfQuery =
+          "UPDATE public.depot SET status = $1 WHERE shelf = $2";
+        await pgPool.query(updateOldShelfQuery, [1, currentShelf]);
+        console.log(`Old shelf ${currentShelf} marked as available`);
+      }
+
+      // Mark the new shelf as occupied (status 2 - occupied)
+      if (!toShelf.startsWith("Officina.")) {
+        const updateNewShelfQuery =
+          "UPDATE public.depot SET status = $1 WHERE shelf = $2";
+        await pgPool.query(updateNewShelfQuery, [2, toShelf]);
+        console.log(`New shelf ${toShelf} marked as occupied`);
+      }
+
+      console.log("Depot table update successful");
+    } catch (depotError) {
+      console.error("Error updating depot table:", depotError);
+      // Don't fail the entire operation if depot update fails
+      console.log("Continuing despite depot update error...");
+    }
+
+    console.log("=== MOVE SHELF SUCCESS ===");
+    return {
+      success: true,
+      status: 200,
+      message: `Shelf moved successfully from ${currentShelf} to ${toShelf}`,
+    };
+  } catch (error) {
+    console.error("Error moving shelf:", error);
+    return {
+      success: false,
+      status: 500,
+      message: "Internal server error",
+      error: error.message,
+    };
+  }
+};
+
+export {
+  updateStatoIfFinito,
+  updateOfficinaPos,
+  updateShelf,
+  add,
+  updateById,
+  modify,
+  moveShelf,
+};

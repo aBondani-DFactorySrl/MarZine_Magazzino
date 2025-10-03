@@ -18,6 +18,8 @@ import {
   updateShelf,
   add,
   updateOfficinaPos,
+  updateStatoIfFinito,
+  moveShelf,
 } from "./iterazioni.js";
 import { readExcel, popPdf } from "./readFiles.js";
 // import { checkImpegni, checkMancanti, checkInformation } from "./checkESA.js";
@@ -210,6 +212,11 @@ app.post("/updateshelf", async (req, res) => {
   res.status(result.status || 200).json(result);
 });
 
+app.post("/updatestatoiffinito", async (req, res) => {
+  const result = await updateStatoIfFinito(req.body, pgPool);
+  res.status(result.status || 200).json(result);
+});
+
 app.post("/addRecord", async (req, res) => {
   const result = await add(req.body, pgPool);
   res.status(result.status || 200).json(result);
@@ -217,6 +224,11 @@ app.post("/addRecord", async (req, res) => {
 
 app.post("/updateofficinapos", async (req, res) => {
   const result = await updateOfficinaPos(req.body, pgPool);
+  res.status(result.status || 200).json(result);
+});
+
+app.post("/moveshelf", async (req, res) => {
+  const result = await moveShelf(req.body, pgPool);
   res.status(result.status || 200).json(result);
 });
 //#endregion
