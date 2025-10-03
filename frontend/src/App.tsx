@@ -1,45 +1,42 @@
-import { useEffect, useState } from "react";
-import { BrowserRouter, useNavigate, useRoutes } from "react-router-dom";
+import { useContext } from "react";
+import { BrowserRouter, useRoutes } from "react-router-dom";
 import { ConfigProvider, theme } from "antd";
 import LoginPage from "./pages/login";
 import HomePage from "./pages/homepage";
-import NewPositions from "./components/ogComponents/newPosition";
-import ComPosition from "./components/ogComponents/comPosition";
+import FourOfour from "./pages/fourOfour";
+import Details from "./pages/details";
+import NewRecords from "./pages/new";
+import UserContext from "./provider/userInfoProvider";
+import DepotManager from "./pages/depotManager";
 
 const RoutesComponent = () => {
-  const navigate = useNavigate();
-  const [isLogged, setIsLogged] = useState(false);
-
-  useEffect(() => {
-    // Check if there's a valid session
-    const checkSession = async () => {
-      const userSession = localStorage.getItem("user");
-      if (userSession) {
-        const userData = JSON.parse(userSession);
-        // console(userData);
-        if (userData.defaultPwd) {
-          setIsLogged(false);
-          navigate("/login");
-        } else {
-          setIsLogged(true);
-        }
-      } else {
-        setIsLogged(false);
-        navigate("/login");
-      }
-    };
-
-    checkSession();
-  }, [navigate]);
+  const { user } = useContext(UserContext);
 
   const element = useRoutes([
     { path: "/login", element: <LoginPage /> },
+    { path: "/404", element: <FourOfour /> },
+    { path: "/details", element: <Details /> },
+    { path: "/newRecords", element: <NewRecords /> },
     { path: "/", element: <HomePage /> },
-    { path: "ubication/:commessa/Officina", element: <NewPositions /> },
-    { path: "ubication/:commessa/Magazzino", element: <ComPosition /> },
+    { path: "/locations", element: <DepotManager /> },
   ]);
 
-  return isLogged ? element : <LoginPage />;
+  // Show loading spinner while checking authentication
+  // if (isLoading) {
+  //   return (
+  //     <div style={{
+  //       display: 'flex',
+  //       justifyContent: 'center',
+  //       alignItems: 'center',
+  //       height: '100vh',
+  //       background: '#1e2a4a'
+  //     }}>
+  //       <Spin size="large" />
+  //     </div>
+  //   );
+  // }
+
+  return user ? element : <LoginPage />;
 };
 
 const App: React.FC = () => {

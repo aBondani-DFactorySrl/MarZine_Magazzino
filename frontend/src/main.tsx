@@ -3,7 +3,7 @@ import { ConfigProvider, theme } from "antd";
 import App from "./App.tsx";
 import "./index.css";
 import { UserProvider } from "./provider/userInfoProvider.tsx";
-import { NotificationProvider } from "./components/Subcomponents/Comp_NotificationManager.tsx";
+import { NotificationProvider } from "./components/notificationManager.tsx";
 
 const config = {
   token: {

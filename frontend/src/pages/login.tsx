@@ -17,10 +17,11 @@ const LoginPage = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (user !== undefined) {
+    // If user is already logged in, redirect to home
+    if (user) {
       navigate("/");
     }
-  }, [user]);
+  }, [user, navigate]);
 
   const handleSubmit = async (values: { email: string; password: string }) => {
     setIsLoading(true);
@@ -41,9 +42,8 @@ const LoginPage = () => {
 
       if (data.success) {
         toast.success("Logged in successfully");
-        // console(data.user);
+        // The login function now handles localStorage automatically
         login(data.user);
-        localStorage.setItem("user", JSON.stringify(data.user));
         navigate("/");
       } else {
         toast.error(data.message || "Login failed");
